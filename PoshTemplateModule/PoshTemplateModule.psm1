@@ -1,35 +1,19 @@
-#Module vars
-$ModulePath = $PSScriptRoot
+Write-Verbose "Importing Functions"
 
-#Get public and private function definition files.
-    $Public  = Get-ChildItem $PSScriptRoot\Public\*.ps1 -ErrorAction SilentlyContinue
-    $Private = Get-ChildItem $PSScriptRoot\Private\*.ps1 -ErrorAction SilentlyContinue
-    [string[]]$PrivateModules = Get-ChildItem $PSScriptRoot\Private -ErrorAction SilentlyContinue |
-        Where-Object {$_.PSIsContainer} |
-        Select-Object -ExpandProperty FullName
-
-# Dot source the files
-    Foreach($import in @($Public + $Private))
+# Import everything in these folders
+foreach($folder in @('private', 'public', 'classes'))
+{
+    
+    $root = Join-Path -Path $PSScriptRoot -ChildPath $folder
+    if(Test-Path -Path $root)
     {
-        Try
-        {
-            . $import.fullname
-        }
-        Catch
-        {
-            Write-Error "Failed to import function $($import.fullname): $_"
-        }
-    }
+        Write-Verbose "processing folder $root"
+        $files = Get-ChildItem -Path $root -Filter *.ps1
 
-# Load up dependency modules
-    foreach($Module in $PrivateModules)
-    {
-        Try
-        {
-            Import-Module $Module -ErrorAction Stop
-        }
-        Catch
-        {
-            Write-Error "Failed to import module $Module`: $_"
-        }
+        # dot source each file
+        $files | where-Object{ $_.name -NotLike '*.Tests.ps1'} | 
+            ForEach-Object{Write-Verbose $_.name; . $_.FullName}
     }
+}
+
+Export-ModuleMember -Function (Get-ChildItem -Path "$PSScriptRoot\public\*.ps1").basename
